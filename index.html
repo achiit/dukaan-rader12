@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Civilian Radar System — Interactive Demo</title>
+<style>
+:root{--bg:#08111f;--panel:#111e30;--panel2:#17283d;--line:#29415d;--text:#edf5ff;--muted:#9eb0c7;--cyan:#55d6e8;--green:#5ee0a0;--amber:#ffc66d;--red:#ff7373}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#18324d 0,#08111f 48%);color:var(--text);font:15px/1.5 system-ui,Segoe UI,Arial,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:25px max(20px,calc((100% - 1250px)/2));border-bottom:1px solid var(--line);background:#091524eF}
+h1{font-size:clamp(1.6rem,4vw,2.3rem);margin:0;letter-spacing:-.04em}h2{font-size:1.08rem;margin:0}.sub{color:var(--muted);margin:5px 0 0}.eyebrow{color:var(--muted);font-size:.68rem;font-weight:800;letter-spacing:.14em;margin:0 0 5px}
+.status{display:flex;align-items:center;gap:9px;font-weight:800;font-size:.78rem;color:var(--green);white-space:nowrap}.dot{width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}
+main{max-width:1250px;margin:auto;padding:22px}.notice{padding:12px 15px;border:1px solid #745a2d;background:#382b183d;border-radius:11px;color:#f5d9a6;margin-bottom:16px}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.metric,.panel{background:linear-gradient(145deg,#14243a,#101b2b);border:1px solid var(--line);border-radius:14px}.metric{padding:14px 16px}.metric span{display:block;color:var(--muted);font-size:.78rem}.metric strong{display:block;margin-top:4px;font-size:1.15rem}
+.layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px}.panel{padding:17px;min-width:0}.panelhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.pill{border:1px solid #32627a;color:var(--cyan);border-radius:30px;padding:3px 9px;font-size:.67rem;font-weight:800}
+.radar{width:min(100%,590px);aspect-ratio:1;margin:auto;border-radius:50%;overflow:hidden;background:#061522;border:1px solid #1d5260}canvas{width:100%;height:100%;display:block}
+.controls{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}.btn{border:1px solid #35536f;background:#1b3048;color:var(--text);padding:9px 15px;border-radius:8px;font-weight:750;cursor:pointer}.btn:hover{filter:brightness(1.2)}.btn.primary{background:#087e91;border-color:#159eb1}.btn.danger{border-color:#8a4545;color:#ffb0b0}.btn:disabled{opacity:.4;cursor:not-allowed}
+.legend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;color:var(--muted);font-size:.74rem;margin-top:12px}.key{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:var(--green)}
+.tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.8rem}th,td{text-align:left;padding:10px 7px;border-bottom:1px solid var(--line);white-space:nowrap}th{font-size:.68rem;color:var(--muted);letter-spacing:.07em}tbody tr{cursor:pointer}tbody tr:hover,tbody tr.selected{background:#1c3650}td:first-child{color:var(--cyan);font-weight:800}
+.details{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:13px;margin-top:15px}.details small{color:var(--muted);letter-spacing:.1em;font-weight:800}.details strong{display:block;color:var(--cyan);margin-top:4px}.details p{font-size:.84rem;color:var(--muted);margin:5px 0 0}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.config div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.82rem}.config span{color:var(--muted)}.config b{color:var(--cyan);text-align:right}
+.eventlog{max-height:175px;overflow:auto;font: .78rem/1.6 ui-monospace,monospace;color:#b8c9dc}.eventlog p{margin:3px 0;border-bottom:1px solid #26384c;padding-bottom:3px}
+footer{max-width:1250px;margin:auto;padding:0 22px 25px;color:var(--muted);font-size:.74rem}
+@media(max-width:850px){.layout,.bottom{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}header{align-items:flex-start;flex-direction:column}}
+@media(max-width:500px){main{padding:13px}.panel{padding:13px}.metrics{gap:8px}.metric{padding:11px}.metric strong{font-size:1rem}}
+</style>
+</head>
+<body>
+<header>
+ <div><p class="eyebrow">INTERACTIVE CONCEPTUAL INTERFACE</p><h1>Civilian Radar System</h1><p class="sub">Non-personal object tracking · Situational awareness</p></div>
+ <div class="status" id="status"><i class="dot"></i><span>RUNNING · SIMULATION</span></div>
+</header>
+<main>
+ <div class="notice"><b>Simulation mode:</b> This page generates moving sample targets locally. It does not connect to radar hardware, transmit RF signals, or detect real objects.</div>
+ <section class="metrics">
+  <div class="metric"><span>Display range</span><strong>1000 m</strong></div>
+  <div class="metric"><span>Active tracks</span><strong id="count">3</strong></div>
+  <div class="metric"><span>Scan rate</span><strong id="scanrate">12 RPM</strong></div>
+  <div class="metric"><span>Sensor state</span><strong style="color:var(--green)">TX INHIBITED</strong></div>
+ </section>
+ <section class="layout">
+  <article class="panel">
+   <div class="panelhead"><div><p class="eyebrow">LIVE DISPLAY</p><h2>Plan Position Indicator</h2></div><span class="pill" id="modepill">SCANNING</span></div>
+   <div class="radar"><canvas id="screen" aria-label="Animated radar simulation"></canvas></div>
+   <div class="legend"><span><i class="key"></i>Active target</span><span>— Velocity vector</span><span>○ Range rings</span></div>
+   <div class="controls">
+    <button class="btn primary" id="toggle">Ⅱ Pause</button>
+    <button class="btn" id="add">＋ Add sample target</button>
+    <button class="btn" id="reset">↻ Reset</button>
+   </div>
+  </article>
+  <article class="panel">
+   <div class="panelhead"><div><p class="eyebrow">LIVE TRACK DATA</p><h2>Active targets</h2></div><span class="pill">SELECT A ROW</span></div>
+   <div class="tablewrap"><table><thead><tr><th>LABEL</th><th>RANGE</th><th>AZIMUTH</th><th>VELOCITY</th></tr></thead><tbody id="tracks"></tbody></table></div>
+   <div class="details"><small>SELECTED TRACK</small><strong id="selectedName">TARGET-001</strong><p id="selectedInfo">Live simulated measurement details appear here.</p></div>
+  </article>
+ </section>
+ <section class="bottom">
+  <article class="panel"><p class="eyebrow">SYSTEM ACTIVITY</p><h2>Event log</h2><div class="eventlog" id="log" aria-live="polite"></div></article>
+  <article class="panel config"><p class="eyebrow">ENGINEERING PLACEHOLDERS</p><h2>Hardware configuration</h2>
+   <div><span>Frequency</span><b>[FREQUENCY] MHz</b></div><div><span>Waveform</span><b>[WAVEFORM_TYPE]</b></div><div><span>Transmit power</span><b>[POWER] W</b></div><div><span>Antenna</span><b>[ANTENNA_TYPE]</b></div><div><span>Naming algorithm</span><b>[NAMING_ALGORITHM]</b></div>
+  </article>
+ </section>
+</main>
+<footer>Conceptual software demonstration only. Real 1000 m detection requires compatible certified radar hardware, engineering validation, and regulatory authorization. Transmit remains inhibited in this demo.</footer>
+<script>
+"use strict";
+const canvas=document.getElementById("screen"),ctx=canvas.getContext("2d");
+const tbody=document.getElementById("tracks");
+const initial=[
+ {id:1,range:320,az:38,speed:4.2,dr:.55,da:.10},
+ {id:2,range:610,az:142,speed:-2.1,dr:-.32,da:.07},
+ {id:3,range:820,az:278,speed:1.6,dr:.22,da:-.08}
+];
+let targets=[],nextId=4,selected=1,running=true,angle=0,last=0,raf=0,lastTable=0;
+const $=id=>document.getElementById(id);
+function resetTargets(){targets=initial.map(t=>({...t}));nextId=4;selected=1;renderTable();log("Simulation reset; sample tracks initialized.");}
+function log(message){const p=document.createElement("p");p.textContent=new Date().toLocaleTimeString()+"  "+message;$("log").prepend(p);while($("log").children.length>12)$("log").lastChild.remove();}
+function updateTargets(dt){
+ targets.forEach(t=>{
+  t.range+=t.dr*dt*10;t.az=(t.az+t.da*dt*5+360)%360;
+  if(t.range>970){t.range=970;t.dr=-Math.abs(t.dr);}
+  if(t.range<70){t.range=70;t.dr=Math.abs(t.dr);}
+ });
+}
+function renderTable(){
+ $("count").textContent=targets.length;tbody.replaceChildren();
+ targets.forEach(t=>{
+  const tr=document.createElement("tr");if(t.id===selected)tr.className="selected";
+  const vals=[`TARGET-${String(t.id).padStart(3,"0")}`,`${Math.round(t.range)} m`,`${t.az.toFixed(1)}°`,`${t.speed.toFixed(1)} m/s`];
+  vals.forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});
+  tr.addEventListener("click",()=>{selected=t.id;renderTable();renderSelected();});
+  tbody.appendChild(tr);
+ });
+ renderSelected();
+}
+function renderSelected(){
+ const t=targets.find(x=>x.id===selected);
+ if(!t){$("selectedName").textContent="NO TRACK SELECTED";$("selectedInfo").textContent="Add a sample target to begin.";return;}
+ $("selectedName").textContent=`TARGET-${String(t.id).padStart(3,"0")}`;
+ $("selectedInfo").textContent=`Range: ${Math.round(t.range)} m · Azimuth: ${t.az.toFixed(1)}° · Radial velocity: ${t.speed.toFixed(1)} m/s · Status: ACTIVE · SIMULATED DATA`;
+}
+function draw(){
+ const rect=canvas.getBoundingClientRect(),size=Math.max(260,Math.floor(rect.width)),dpr=window.devicePixelRatio||1;
+ if(canvas.width!==Math.round(size*dpr)||canvas.height!==Math.round(size*dpr)){canvas.width=Math.round(size*dpr);canvas.height=Math.round(size*dpr);}
+ ctx.setTransform(dpr,0,0,dpr,0,0);const c=size/2,r=size*.43;
+ ctx.clearRect(0,0,size,size);
+ ctx.strokeStyle="rgba(85,214,232,.34)";ctx.lineWidth=1;
+ for(let i=1;i<=4;i++){ctx.beginPath();ctx.arc(c,c,r*i/4,0,Math.PI*2);ctx.stroke();ctx.fillStyle="#829bb3";ctx.font="10px system-ui";ctx.fillText(`${i*250}m`,c+5,c-r*i/4+12);}
+ for(let d=0;d<360;d+=30){let a=(d-90)*Math.PI/180;ctx.beginPath();ctx.moveTo(c,c);ctx.lineTo(c+Math.cos(a)*r,c+Math.sin(a)*r);ctx.stroke();}
+ const sweep=(angle-90)*Math.PI/180;ctx.fillStyle="rgba(40,220,160,.12)";ctx.beginPath();ctx.moveTo(c,c);ctx.arc(c,c,r,sweep-.22,sweep);ctx.closePath();ctx.fill();
+ ctx.strokeStyle="rgba(94,224,160,.9)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(c,c);ctx.lineTo(c+Math.cos(sweep)*r,c+Math.sin(sweep)*r);ctx.stroke();
+ targets.forEach(t=>{
+  const a=(t.az-90)*Math.PI/180,rr=r*t.range/1000,x=c+Math.cos(a)*rr,y=c+Math.sin(a)*rr;
+  ctx.strokeStyle=t.id===selected?"#ffc66d":"rgba(94,224,160,.8)";ctx.lineWidth=t.id===selected?2.5:1.5;
+  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a)*20,y+Math.sin(a)*20);ctx.stroke();
+  ctx.shadowColor="#5ee0a0";ctx.shadowBlur=12;ctx.fillStyle=t.id===selected?"#ffc66d":"#5ee0a0";ctx.beginPath();ctx.arc(x,y,t.id===selected?6:4.5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+  ctx.fillStyle="#edf5ff";ctx.font="bold 10px system-ui";ctx.fillText(`T-${String(t.id).padStart(3,"0")}`,x+8,y-8);
+ });
+ ctx.fillStyle="#ffc66d";ctx.beginPath();ctx.arc(c,c,4,0,Math.PI*2);ctx.fill();
+}
+function frame(ts){
+ if(!running)return;const dt=last?Math.min((ts-last)/1000,.08):.016;last=ts;
+ angle=(angle+dt*72)%360;updateTargets(dt);draw();
+ if(ts-lastTable>250){renderTable();lastTable=ts;}
+ raf=requestAnimationFrame(frame);
+}
+function start(){if(running)return;running=true;last=0;$("toggle").textContent="Ⅱ Pause";$("status").innerHTML='<i class="dot"></i><span>RUNNING · SIMULATION</span>';$("status").style.color="var(--green)";$("modepill").textContent="SCANNING";log("Simulation resumed.");raf=requestAnimationFrame(frame);}
+function pause(){if(!running)return;running=false;cancelAnimationFrame(raf);$("toggle").textContent="▶ Resume";$("status").innerHTML='<i class="dot"></i><span>PAUSED · SIMULATION</span>';$("status").style.color="var(--amber)";$("modepill").textContent="PAUSED";log("Simulation paused.");}
+$("toggle").addEventListener("click",()=>running?pause():start());
+$("add").addEventListener("click",()=>{
+ if(targets.length>=12){log("Maximum of 12 demo tracks reached.");return;}
+ const id=nextId++,t={id,range:150+Math.random()*780,az:Math.random()*360,speed:(Math.random()*8-4),dr:Math.random()*.7-.35,da:Math.random()*.2-.1};
+ targets.push(t);selected=id;renderTable();log(`Sample track TARGET-${String(id).padStart(3,"0")} added.`);
+});
+$("reset").addEventListener("click",()=>{resetTargets();angle=0;draw();});
+window.addEventListener("resize",draw);
+resetTargets();draw();log("Interactive radar simulation ready.");raf=requestAnimationFrame(frame);
+</script>
+</body>
+</html>
